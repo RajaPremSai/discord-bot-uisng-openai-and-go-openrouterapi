@@ -54,7 +54,7 @@ func (r *Router) Count() (c int) {
 	return len(r.commands)
 }
 
-func (r *Router) getSubcommand(cmd *Command, opt *discord.ApplicationCommandInteractionDataOption, parent []Handler) {
+func (r *Router) getSubcommand(cmd *Command, opt *discord.ApplicationCommandInteractionDataOption, parent []Handler) (*Command, *discord.ApplicationCommandInteractionDataOption, []Handler) {
 	if cmd == nil {
 		return nil, nil, nil
 	}
@@ -128,6 +128,7 @@ func (r *Router) Sync(s *discord.Session, guild string) (err error) {
 		commands = append(commands, c.ApplicationCommand())
 	}
 	r.registeredCommands, err = s.ApplicationCommandBulkOverwrite(s.State.User.ID, guild, commands)
+	return
 }
 
 func (r *Router) ClearCommands(s *discord.Session, guild string) (errors []error) {

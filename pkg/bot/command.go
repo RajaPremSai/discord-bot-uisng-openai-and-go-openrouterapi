@@ -6,7 +6,7 @@ import (
 )
 
 type Handler interface {
-	HandlerCommand(ctx *Context)
+	HandleCommand(ctx *Context)
 }
 
 type HandlerFunc func(ctx *Context)
@@ -31,5 +31,36 @@ type Command struct {
 	Handler                  Handler
 	Middlewares              []Handler
 	MessageHandler           MessageHandler
-	Subcommands              *Router
+	SubCommands              *Router
+}
+
+func (cmd Command) ApplicationCommand() *discord.ApplicationCommand {
+	applicationCommand := &discord.ApplicationCommand{
+		Name:                     cmd.Name,
+		Description:              cmd.Description,
+		DMPermission:             &cmd.DMPermission,
+		DefaultMemberPermissions: &cmd.DefaultMemberPermissions,
+		Options:                  cmd.Options,
+		Type:                     cmd.Type,
+	}
+	for _, subcommand := range cmd.SubCommands.List() {
+		applicationCommand.Options = append(applicationCommand.Options, subcommand.ApplicationCommandOption())
+	}
+	return applicationCommand
+}
+
+func (cmd Command) ApplicationCommandOption() *discord.ApplicationCommandOption {
+	applicationCommand := cmd.ApplicationCommand()
+	typ := discord.ApplicationCommandOptionSubCommand
+
+	if cmd.SubCommands != nil && cmd.SubCommands.Count() != 0 {
+		typ = discord.ApplicationCommandOptionSubCommandGroup
+	}
+
+	return &discord.ApplicationCommandOption{
+		Name:        applicationCommand.Name,
+		Description: applicationCommand.Description,
+		Options:     applicationCommand.Options,
+		Type:        typ,
+	}
 }
