@@ -34,3 +34,9 @@ func splitMessage(message string) []string {
 	return messageParts
 }
 
+func reverseMessages(messages *[]openai.ChatCompletionMessage) {
+	length := len(*messages)
+	for i := 0; i < length/2; i++ {
+		(*messages)[i], (*messages)[length-i-1] = (*messages)[length-i-1], (*messages)[i]
+	}
+}
