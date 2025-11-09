@@ -1,6 +1,8 @@
 package gpt
 
 import (
+	"net/http"
+
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
 	discord "github.com/bwmarrin/discordgo"
 	"github.com/sashabaranov/go-openai"
@@ -55,7 +57,7 @@ func modelTruncateLimit(model string) *int {
 
 }
 
-func attachUsageInfo(s *discord.Session, m *discord.Message, usage openai.Usage, model string){
+func attachUsageInfo(s *discord.Session, m *discord.Message, usage openai.Usage, model string) {
 
 }
 
