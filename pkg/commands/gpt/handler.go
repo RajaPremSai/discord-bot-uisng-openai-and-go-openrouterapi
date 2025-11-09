@@ -30,8 +30,8 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 	})
 	if err != nil {
 		log.Printf("[GID: %s,i.ID: %s] Failed to repsond to interaction with the error: %v\n", ctx.Interaction.GuildID, ctx.Interaction.ID, err)
+		return
 	}
-	return
 
 	var prompt string
 	if option, ok := ctx.Options[gptCommandOptionPrompt.string()]; ok {
