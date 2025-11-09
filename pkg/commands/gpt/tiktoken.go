@@ -18,6 +18,26 @@ func countMessageTokens(message openai.ChatCompletionMessage, model string) *int
 	return &tokens
 }
 
+func countMessagesTokens(messages []openai.ChatCompletionMessage, model string) *int {
+	ok, tokensPerMessage, tokensPerName := _tokensConfiguration(model)
+	if !ok {
+		return nil
+	}
+
+	enc, err := tokenizer.ForModel(tokenizer.Model(model))
+	if err != nil {
+		enc, _ = tokenizer.Get(tokenizer.Cl100kBase)
+	}
+
+	tokens := 0
+	for _, message := range messages {
+		tokens += _countMessageTokens(enc, tokensPerMessage, tokensPerName, message)
+	}
+	tokens += 3
+
+	return &tokens
+}
+
 func _countMessageTokens(enc tokenizer.Codec, tokensPerMessage int, tokensPerName int, message openai.ChatCompletionMessage) int {
 	tokens := tokensPerMessage
 	contentIds, _, _ := enc.Encode(message.Content)
@@ -30,4 +50,36 @@ func _countMessageTokens(enc tokenizer.Codec, tokensPerMessage int, tokensPerNam
 		tokens += len(nameIds)
 	}
 	return tokens
+}
+
+func countAllMessagesTokens(systemMessage *openai.ChatCompletionMessage, messages []openai.ChatCompletionMessage, model string) *int {
+	if systemMessage != nil {
+		messages = append(messages, *systemMessage)
+	}
+	return countMessagesTokens(messages, model)
+}
+
+func _tokensConfiguration(model string) (ok bool, tokensPerMessage int, tokensPerName int) {
+	ok = true
+
+	switch model {
+	case openai.GPT3Dot5Turbo0301:
+		tokensPerMessage = 4
+		tokensPerName = -1
+	case openai.GPT3Dot5Turbo,
+		openai.GPT3Dot5Turbo0613,
+		openai.GPT3Dot5Turbo16K,
+		openai.GPT3Dot5Turbo16K0613,
+		openai.GPT4,
+		openai.GPT40314,
+		openai.GPT40613,
+		openai.GPT432K0314,
+		openai.GPT432K0613:
+		tokensPerMessage = 3
+		tokensPerName = 1
+	default:
+		ok = false
+		return
+	}
+	return
 }
