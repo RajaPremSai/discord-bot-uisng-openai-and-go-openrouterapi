@@ -20,7 +20,6 @@ const (
 
 func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messagesCache *MessagesCache, ignoredChannelsCache *IgnoredChannelsCache) {
 	if !shouldHandleMessageType(ctx.Message.Type) {
-		// ignore message types that should not be handled by this command
 		return
 	}
 
