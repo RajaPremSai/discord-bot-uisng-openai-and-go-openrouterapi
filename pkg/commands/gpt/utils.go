@@ -101,7 +101,7 @@ func getContentOrURLData(client *http.Client, s string) (content string, err err
 }
 
 func parseInteractionReply(discordMessage *discord.Message) (prompt string, context string, model string, temperature *float32) {
-	if discordMessage.Embeds == nil || len(discordMessage.Embeds) == 0 {
+	if discordMessage == nil || len(discordMessage.Embeds) == 0 {
 		return
 	}
 
@@ -209,8 +209,8 @@ func generateThreadTitleBasedOnInitialPrompt(ctx *bot.Context, client *openai.Cl
 	conversation := make([]map[string]string, len(messages))
 	for i, msg := range messages {
 		conversation[i] = map[string]string{
-			"role":    msg.Role,
-			"content": msg.Content,
+			"role":    msg.Message.Role,
+			"content": msg.Message.Content,
 		}
 	}
 	var conversationTextBuilder strings.Builder

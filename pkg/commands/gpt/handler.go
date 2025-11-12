@@ -24,7 +24,7 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 		log.Printf("*[GID : %s,i.ID:%s] Interaction was invoked in the existing thread,ignoring\n", ctx.Interaction.GuildID, ctx.Interaction.ID)
 		return
 	}
-	log.Printf("*[GID : %s,i.ID:%s] ChatGPT interaction invoked by UserID:\n", ctx.Interaction.GuildID, ctx.Interaction.ID, ctx.Interaction.User.ID)
+	log.Printf("*[GID : %s,i.ID:%s] ChatGPT interaction invoked by UserID:%s\n", ctx.Interaction.GuildID, ctx.Interaction.ID, ctx.Interaction.Member.User.ID)
 	err = ctx.Respond(&discord.InteractionResponse{
 		Type: discord.InteractionResponseDeferredChannelMessageWithSource,
 	})
@@ -257,7 +257,14 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 	// Unlock the thread at the end
 	defer utils.ToggleDiscordThreadLock(ctx.Session, thread.ID, false)
 
-	go generateThreadTitleBasedOnInitialPrompt(ctx, client, thread.ID, cacheItem.Messages)
+	// convert []ChatCompletionMessage -> []ChatCompletionChoice (generator expects choices)
+	choices := make([]openai.ChatCompletionChoice, len(cacheItem.Messages))
+	for i := range cacheItem.Messages {
+		choices[i] = openai.ChatCompletionChoice{
+			Message: cacheItem.Messages[i],
+		}
+	}
+	go generateThreadTitleBasedOnInitialPrompt(ctx, client, thread.ID, choices)
 
 	log.Printf("[GID: %s, i.ID: %s] ChatGPT Request [Model: %s] responded with a usage: [PromptTokens: %d, CompletionTokens: %d, TotalTokens: %d]\n", ctx.Interaction.GuildID, ctx.Interaction.ID, cacheItem.Model, resp.usage.PromptTokens, resp.usage.CompletionTokens, resp.usage.TotalTokens)
 

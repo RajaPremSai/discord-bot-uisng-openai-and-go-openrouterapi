@@ -28,7 +28,7 @@ func DiscordChannelMessageEdit(s *discord.Session, messageID string, channelID s
 	_, err := s.ChannelMessageEditComplex(
 		&discord.MessageEdit{
 			Content: content,
-			Embeds:  embeds,
+			Embeds:  &embeds,
 			ID:      messageID,
 			Channel: channelID,
 		},

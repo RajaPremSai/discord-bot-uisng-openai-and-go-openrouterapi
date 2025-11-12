@@ -45,8 +45,8 @@ var (
 	discordBot   *bot.Bot
 	openaiClient *openai.Client
 
-	gptMessageCache     *gpt.MessagesCache
-	ignoredChannelCache = make(gpt.IgnoredChannelsCache)
+	gptMessagesCache     *gpt.MessagesCache
+	ignoredChannelsCache = make(gpt.IgnoredChannelsCache)
 )
 
 func main() {
@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error reading credentials.yaml: %v", err)
 	}
-	gptMessageCache, err = gpt.NewMessagesCache(constants.DiscordThreadsCacheSize)
+	gptMessagesCache, err = gpt.NewMessagesCache(constants.DiscordThreadsCacheSize)
 	if err != nil {
 		log.Fatalf("Error initializing GPTMessageCache: %v", err)
 	}

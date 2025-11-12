@@ -109,18 +109,16 @@ func imageHandler(ctx *bot.Context, client *openai.Client) {
 		})
 		return
 	}
-	if err != nil {
-		log.Printf("[GID: %s, i.ID: %s] Discord API failed with the error: %v\n", ctx.Interaction.GuildID, ctx.Interaction.ID, err)
-		ctx.FollowupMessageCreate(ctx.Interaction, true, &discord.WebhookParams{
-			Content: fmt.Sprintf("> %s", prompt),
-			Embeds: []*discord.MessageEmbed{
-				{
-					Title:       "❌ Discord API Error",
-					Description: err.Error(),
-					Color:       0xff0000,
-				},
+	// err is nil here (the error branch returned), so just continue with the followup.
+	log.Printf("[GID: %s, i.ID: %s] Discord API succeeded\n", ctx.Interaction.GuildID, ctx.Interaction.ID)
+	ctx.FollowupMessageCreate(ctx.Interaction, true, &discord.WebhookParams{
+		Content: fmt.Sprintf("> %s", prompt),
+		Embeds: []*discord.MessageEmbed{
+			{
+				Title:       "✅ Discord API Success",
+				Description: "Your action completed successfully.",
+				Color:       0x00ff00,
 			},
-		})
-		return
-	}
+		},
+	})
 }
