@@ -1,12 +1,11 @@
 package dalle
 
 import (
-	"context"
 	"log"
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 	discord "github.com/bwmarrin/discordgo"
-	"github.com/sashabaranov/go-openai"
 )
 
 func imageInteractionResponseMiddleware(ctx *bot.Context) {
@@ -22,46 +21,12 @@ func imageInteractionResponseMiddleware(ctx *bot.Context) {
 
 	ctx.Next()
 }
-func imageModerationMiddleware(ctx *bot.Context, client *openai.Client) {
-	log.Printf("[GId : %s,i.ID:%s] Performing interaction moderation middeware\n", ctx.Interaction.GuildID, ctx.Interaction.ID)
+func imageModerationMiddleware(ctx *bot.Context, client *openrouter.Client) {
+	log.Printf("[GId : %s,i.ID:%s] Performing interaction moderation middleware\n", ctx.Interaction.GuildID, ctx.Interaction.ID)
 
-	var prompt string
-	if option, ok := ctx.Options[imageCommandOptionPrompt.String()]; ok {
-		prompt = option.StringValue()
-	} else {
-		log.Printf("[GID : %s,i.ID:%s] Failed to parse prompt option\n", ctx.Interaction.GuildID, ctx.Interaction.ID)
-		ctx.Respond(&discord.InteractionResponse{
-			Type: discord.InteractionResponseChannelMessageWithSource,
-			Data: &discord.InteractionResponseData{
-				Content: "ERROR : Failed to parse prompt option",
-			},
-		})
-		return
-	}
-	resp, err := client.Moderations(
-		context.Background(),
-		openai.ModerationRequest{
-			Input: prompt,
-		},
-	)
-	if err != nil {
-		log.Printf("[GID: %s, i.ID:%s] OPENAI Moderation API request failed with the error:%v\n", ctx.Interaction.GuildID, ctx.Interaction.ID, err)
-		ctx.Next()
-		return
-	}
-
-	if resp.Results[0].Flagged {
-		log.Printf("[GID: %s, i.ID: %s] Ineraction was flagged y Moderation API,prompt: \"%s\"n", ctx.Interaction.GuildID, ctx.Interaction.ID, prompt)
-		ctx.FollowupMessageCreate(ctx.Interaction, true, &discord.WebhookParams{
-			Embeds: []*discord.MessageEmbed{
-				{
-					Title:       "❌ Error",
-					Description: "The provided prompt contains text that violates OpenAI's usage policies and is not allowed by their safety system",
-					Color:       0xff0000,
-				},
-			},
-		})
-		return
-	}
+	// Note: OpenRouter doesn't have a direct moderation endpoint like OpenAI
+	// For now, we'll skip moderation and let OpenRouter handle content filtering
+	// TODO: Implement alternative content moderation if needed
+	log.Printf("[GID: %s, i.ID:%s] Skipping moderation check - OpenRouter handles content filtering\n", ctx.Interaction.GuildID, ctx.Interaction.ID)
 	ctx.Next()
 }

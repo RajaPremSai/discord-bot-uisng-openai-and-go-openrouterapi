@@ -7,11 +7,11 @@ import (
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/constants"
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 	discord "github.com/bwmarrin/discordgo"
-	"github.com/sashabaranov/go-openai"
 )
 
-func imageHandler(ctx *bot.Context, client *openai.Client) {
+func imageHandler(ctx *bot.Context, client *openrouter.Client, imageModel string) {
 	var prompt string
 	if option, ok := ctx.Options[imageCommandOptionPrompt.String()]; ok {
 		prompt = option.StringValue()
@@ -42,20 +42,21 @@ func imageHandler(ctx *bot.Context, client *openai.Client) {
 	log.Printf("[GID:%s,CHID:%s] Dalle request [size:%s,Number:%d]invoked", ctx.Interaction.GuildID, ctx.Interaction.ChannelID, size, number)
 	resp, err := client.CreateImage(
 		context.Background(),
-		openai.ImageRequest{
+		openrouter.ImageRequest{
 			Prompt:         prompt,
+			Model:          imageModel,
 			N:              number,
 			Size:           size,
-			ResponseFormat: openai.CreateImageResponseFormatURL,
+			ResponseFormat: "url",
 			User:           ctx.Interaction.Member.User.ID,
 		},
 	)
 	if err != nil {
-		log.Printf("[GID:%s,i.ID:%s] OpenAI request CreateImage failed with the error:%v", ctx.Interaction.GuildID, ctx.Interaction.ID, err)
+		log.Printf("[GID:%s,i.ID:%s] OpenRouter request CreateImage failed with the error:%v", ctx.Interaction.GuildID, ctx.Interaction.ID, err)
 		ctx.FollowupMessageCreate(ctx.Interaction, true, &discord.WebhookParams{
 			Embeds: []*discord.MessageEmbed{
 				{
-					Title:       "X OpenAI API Failed",
+					Title:       "❌ OpenRouter API Failed",
 					Description: err.Error(),
 					Color:       0xff0000,
 				},

@@ -2,13 +2,13 @@ package dalle
 
 import (
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 	discord "github.com/bwmarrin/discordgo"
-	"github.com/sashabaranov/go-openai"
 )
 
 const commandName = "dalle"
 
-func Command(client *openai.Client) *bot.Command {
+func Command(client *openrouter.Client, imageModel string) *bot.Command {
 	numberOptionMinValue := 1.0
 	return &bot.Command{
 		Name:        commandName,
@@ -27,16 +27,16 @@ func Command(client *openai.Client) *bot.Command {
 				Required:    false,
 				Choices: []*discord.ApplicationCommandOptionChoice{
 					{
-						Name:  openai.CreateImageSize256x256 + " (Default)",
-						Value: openai.CreateImageSize256x256,
+						Name:  "256x256 (Default)",
+						Value: "256x256",
 					},
 					{
-						Name:  openai.CreateImageSize512x512,
-						Value: openai.CreateImageSize512x512,
+						Name:  "512x512",
+						Value: "512x512",
 					},
 					{
-						Name:  openai.CreateImageSize1024x1024,
-						Value: openai.CreateImageSize1024x1024,
+						Name:  "1024x1024",
+						Value: "1024x1024",
 					},
 				},
 			},
@@ -50,7 +50,7 @@ func Command(client *openai.Client) *bot.Command {
 			},
 		},
 		Handler: bot.HandlerFunc(func(ctx *bot.Context) {
-			imageHandler(ctx, client)
+			imageHandler(ctx, client, imageModel)
 		}),
 		Middlewares: []bot.Handler{
 			bot.HandlerFunc(imageInteractionResponseMiddleware),

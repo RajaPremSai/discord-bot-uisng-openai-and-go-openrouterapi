@@ -73,7 +73,8 @@
   - Write unit tests for command option parsing with OpenRouter models
   - _Requirements: 2.3, 4.4_
 
-- [ ] 10. Update DALLE command handlers to use OpenRouter client
+- [x] 10. Update DALLE command handlers to use OpenRouter client
+
 
   - Modify `pkg/commands/dalle/handler.go` to use OpenRouter client instead of OpenAI
   - Update `imageHandler` function to work with OpenRouter image generation API

@@ -5,11 +5,10 @@ import (
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/constants"
 	discord "github.com/bwmarrin/discordgo"
-	"github.com/sashabaranov/go-openai"
 )
 
 const (
-	imageDefaultSize = openai.CreateImageSize256x256
+	imageDefaultSize = "256x256"
 
 	imagePriceSize256x256   = 0.016
 	imagePriceSize512x512   = 0.018
@@ -18,11 +17,11 @@ const (
 
 func priceForResponse(n int, size string) float64 {
 	switch size {
-	case openai.CreateImageSize256x256:
+	case "256x256":
 		return float64(n) * imagePriceSize256x256
-	case openai.CreateImageSize512x512:
+	case "512x512":
 		return float64(n) * imagePriceSize512x512
-	case openai.CreateImageSize1024x1024:
+	case "1024x1024":
 		return float64(n) * imagePrizeSize1024x1024
 	}
 	return 0
