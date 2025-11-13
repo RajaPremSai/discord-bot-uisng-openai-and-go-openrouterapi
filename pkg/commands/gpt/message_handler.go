@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/utils"
-	"github.com/sashabaranov/go-openai"
 	discord "github.com/bwmarrin/discordgo"
 )
 
@@ -18,7 +18,7 @@ const (
 	gptEmojiErr = "❌"
 )
 
-func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messagesCache *MessagesCache, ignoredChannelsCache *IgnoredChannelsCache) {
+func chatGPTMessageHandler(ctx *bot.MessageContext, client *openrouter.Client, messagesCache *MessagesCache, ignoredChannelsCache *IgnoredChannelsCache) {
 	if !shouldHandleMessageType(ctx.Message.Type) {
 		return
 	}
@@ -81,11 +81,11 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messa
 				continue
 			}
 
-			transformed := make([]openai.ChatCompletionMessage, 0, len(batch))
+			transformed := make([]openrouter.ChatCompletionMessage, 0, len(batch))
 			for _, value := range batch {
-				role := openai.ChatMessageRoleUser
+				role := "user"
 				if value.Author.ID == ctx.Session.State.User.ID {
-					role = openai.ChatMessageRoleAssistant
+					role = "assistant"
 				}
 				content := value.Content
 				// First message is always a referenced message
@@ -96,7 +96,7 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messa
 						isGPTThread = false
 						break
 					}
-					role = openai.ChatMessageRoleUser
+					role = "user"
 
 					prompt, context, model, temperature := parseInteractionReply(value.ReferencedMessage)
 					if prompt == "" {
@@ -104,11 +104,11 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messa
 						break
 					}
 					content = prompt
-					var systemMessage *openai.ChatCompletionMessage
+					var systemMessage *openrouter.ChatCompletionMessage
 					if context != "" {
 						context, _ = getContentOrURLData(ctx.Client, context)
-						systemMessage = &openai.ChatCompletionMessage{
-							Role:    openai.ChatMessageRoleSystem,
+						systemMessage = &openrouter.ChatCompletionMessage{
+							Role:    "system",
 							Content: context,
 						}
 					}
@@ -126,13 +126,13 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messa
 					// not related to conversation
 					continue
 				}
-				transformed = append(transformed, openai.ChatCompletionMessage{
+				transformed = append(transformed, openrouter.ChatCompletionMessage{
 					Role:    role,
 					Content: content,
 				})
 			}
 
-			reverseMessages(&transformed)
+			reverseOpenRouterMessages(&transformed)
 
 			// Add the messages to the beginning of the main list
 			cacheItem.Messages = append(transformed, cacheItem.Messages...)
@@ -162,8 +162,8 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messa
 
 		messagesCache.Add(ctx.Message.ChannelID, cacheItem)
 	} else {
-		cacheItem.Messages = append(cacheItem.Messages, openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleUser,
+		cacheItem.Messages = append(cacheItem.Messages, openrouter.ChatCompletionMessage{
+			Role:    "user",
 			Content: ctx.Message.Content,
 		})
 	}
@@ -203,7 +203,7 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messa
 
 	log.Printf("[GID: %s, CHID: %s] ChatGPT Request invoked with [Model: %s]. Current cache size: %v\n", ctx.Message.GuildID, ctx.Message.ChannelID, cacheItem.Model, len(cacheItem.Messages))
 
-	resp, err := sendChatGPTRequest(client, cacheItem)
+	resp, err := sendOpenRouterRequest(client, cacheItem)
 
 	// Signal the typing ticker to stop
 	done <- true
@@ -213,7 +213,7 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openai.Client, messa
 		log.Printf("[GID: %s, CHID: %s] ChatGPT request ChatCompletion failed with the error: %v\n", ctx.Message.GuildID, ctx.Message.ChannelID, err)
 		ctx.AddReaction(gptEmojiErr)
 		ctx.EmbedReply(&discord.MessageEmbed{
-			Title:       "❌ OpenAI API failed",
+			Title:       "❌ OpenRouter API failed",
 			Description: err.Error(),
 			Color:       0xff0000,
 		})

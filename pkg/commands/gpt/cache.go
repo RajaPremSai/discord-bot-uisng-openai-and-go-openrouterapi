@@ -2,7 +2,7 @@ package gpt
 
 import (
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/sashabaranov/go-openai"
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 )
 
 type IgnoredChannelsCache map[string]struct{}
@@ -12,8 +12,8 @@ type MessagesCache struct {
 }
 
 type MessagesCacheData struct {
-	Messages      []openai.ChatCompletionMessage
-	SystemMessage *openai.ChatCompletionMessage
+	Messages      []openrouter.ChatCompletionMessage
+	SystemMessage *openrouter.ChatCompletionMessage
 	Model         string
 	Temperature   *float32
 	TokenCount    int

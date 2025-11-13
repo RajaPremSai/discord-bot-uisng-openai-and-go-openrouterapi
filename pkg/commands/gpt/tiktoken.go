@@ -1,6 +1,9 @@
 package gpt
 
 import (
+	"strings"
+	
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tiktoken-go/tokenizer"
 )
@@ -16,6 +19,16 @@ func countMessageTokens(message openai.ChatCompletionMessage, model string) *int
 	}
 	tokens := _countMessageTokens(enc, tokensPerMessage, tokensPerName, message)
 	return &tokens
+}
+
+func countOpenRouterMessageTokens(message openrouter.ChatCompletionMessage, model string) *int {
+	// Convert OpenRouter message to OpenAI format for token counting
+	openaiMessage := openai.ChatCompletionMessage{
+		Role:    message.Role,
+		Content: message.Content,
+		Name:    message.Name,
+	}
+	return countMessageTokens(openaiMessage, extractBaseModel(model))
 }
 
 func countMessagesTokens(messages []openai.ChatCompletionMessage, model string) *int {
@@ -59,6 +72,29 @@ func countAllMessagesTokens(systemMessage *openai.ChatCompletionMessage, message
 	return countMessagesTokens(messages, model)
 }
 
+func countAllOpenRouterMessagesTokens(systemMessage *openrouter.ChatCompletionMessage, messages []openrouter.ChatCompletionMessage, model string) *int {
+	// Convert OpenRouter messages to OpenAI format for token counting
+	openaiMessages := make([]openai.ChatCompletionMessage, len(messages))
+	for i, msg := range messages {
+		openaiMessages[i] = openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+			Name:    msg.Name,
+		}
+	}
+	
+	var openaiSystemMessage *openai.ChatCompletionMessage
+	if systemMessage != nil {
+		openaiSystemMessage = &openai.ChatCompletionMessage{
+			Role:    systemMessage.Role,
+			Content: systemMessage.Content,
+			Name:    systemMessage.Name,
+		}
+	}
+	
+	return countAllMessagesTokens(openaiSystemMessage, openaiMessages, extractBaseModel(model))
+}
+
 func _tokensConfiguration(model string) (ok bool, tokensPerMessage int, tokensPerName int) {
 	ok = true
 
@@ -82,4 +118,16 @@ func _tokensConfiguration(model string) (ok bool, tokensPerMessage int, tokensPe
 		return
 	}
 	return
+}
+
+// extractBaseModel extracts the base model name from OpenRouter format
+// e.g., "openai/gpt-4" -> "gpt-4", "anthropic/claude-3-sonnet" -> "claude-3-sonnet"
+func extractBaseModel(model string) string {
+	if strings.Contains(model, "/") {
+		parts := strings.Split(model, "/")
+		if len(parts) > 1 {
+			return parts[1]
+		}
+	}
+	return model
 }

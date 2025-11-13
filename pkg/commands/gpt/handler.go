@@ -6,9 +6,9 @@ import (
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/constants"
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/utils"
 	discord "github.com/bwmarrin/discordgo"
-	"github.com/sashabaranov/go-openai"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 	gptContextOptionMaxLength                   = 1024
 )
 
-func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *MessagesCache) {
+func chatGPTHandler(ctx *bot.Context, client *openrouter.Client, messagesCache *MessagesCache) {
 	ch, err := ctx.Session.State.Channel(ctx.Interaction.ChannelID)
 	if err == nil && ch.IsThread() {
 		log.Printf("*[GID : %s,i.ID:%s] Interaction was invoked in the existing thread,ignoring\n", ctx.Interaction.GuildID, ctx.Interaction.ID)
@@ -64,9 +64,9 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 
 	// Prepare cache item
 	cacheItem := &MessagesCacheData{
-		Messages: []openai.ChatCompletionMessage{
+		Messages: []openrouter.ChatCompletionMessage{
 			{
-				Role:    openai.ChatMessageRoleUser,
+				Role:    "user",
 				Content: prompt,
 			},
 		},
@@ -93,8 +93,8 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 			return
 		}
 
-		cacheItem.SystemMessage = &openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleSystem,
+		cacheItem.SystemMessage = &openrouter.ChatCompletionMessage{
+			Role:    "system",
 			Content: context,
 		}
 
@@ -138,8 +138,8 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 			})
 			return
 		}
-		cacheItem.SystemMessage = &openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleSystem,
+		cacheItem.SystemMessage = &openrouter.ChatCompletionMessage{
+			Role:    "system",
 			Content: context,
 		}
 		fields = append(fields, &discord.MessageEmbedField{
@@ -172,7 +172,7 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 				Description: prompt,
 				Color:       gptInteractionEmbedColor,
 				Author: &discord.MessageEmbedAuthor{
-					Name:         "OpenAI chat request by " + ctx.Interaction.Member.User.Username,
+					Name:         "OpenRouter chat request by " + ctx.Interaction.Member.User.Username,
 					IconURL:      ctx.Interaction.Member.User.AvatarURL("32"),
 					ProxyIconURL: constants.OpenAIBlackIconURL,
 				},
@@ -238,15 +238,15 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 
 	messagesCache.Add(thread.ID, cacheItem)
 
-	log.Printf("[GID: %s, i.ID: %s] ChatGPT Request invoked with [Model: %s]. Current cache size: %v\n", ctx.Interaction.GuildID, ctx.Interaction.ID, cacheItem.Model, len(cacheItem.Messages))
-	resp, err := sendChatGPTRequest(client, cacheItem)
+	log.Printf("[GID: %s, i.ID: %s] OpenRouter Request invoked with [Model: %s]. Current cache size: %v\n", ctx.Interaction.GuildID, ctx.Interaction.ID, cacheItem.Model, len(cacheItem.Messages))
+	resp, err := sendOpenRouterRequest(client, cacheItem)
 	if err != nil {
-		// ChatGPT failed for whatever reason, tell users about it
-		log.Printf("[GID: %s, i.ID: %s] OpenAI request ChatCompletion failed with the error: %v\n", ctx.Interaction.GuildID, ctx.Interaction.ID, err)
+		// OpenRouter failed for whatever reason, tell users about it
+		log.Printf("[GID: %s, i.ID: %s] OpenRouter request ChatCompletion failed with the error: %v\n", ctx.Interaction.GuildID, ctx.Interaction.ID, err)
 		emptyString := ""
 		utils.DiscordChannelMessageEdit(ctx.Session, channelMessage.ID, channelMessage.ChannelID, &emptyString, []*discord.MessageEmbed{
 			{
-				Title:       "❌ OpenAI API failed",
+				Title:       "❌ OpenRouter API failed",
 				Description: err.Error(),
 				Color:       0xff0000,
 			},
@@ -258,15 +258,15 @@ func chatGPTHandler(ctx *bot.Context, client *openai.Client, messagesCache *Mess
 	defer utils.ToggleDiscordThreadLock(ctx.Session, thread.ID, false)
 
 	// convert []ChatCompletionMessage -> []ChatCompletionChoice (generator expects choices)
-	choices := make([]openai.ChatCompletionChoice, len(cacheItem.Messages))
+	choices := make([]openrouter.ChatCompletionChoice, len(cacheItem.Messages))
 	for i := range cacheItem.Messages {
-		choices[i] = openai.ChatCompletionChoice{
+		choices[i] = openrouter.ChatCompletionChoice{
 			Message: cacheItem.Messages[i],
 		}
 	}
 	go generateThreadTitleBasedOnInitialPrompt(ctx, client, thread.ID, choices)
 
-	log.Printf("[GID: %s, i.ID: %s] ChatGPT Request [Model: %s] responded with a usage: [PromptTokens: %d, CompletionTokens: %d, TotalTokens: %d]\n", ctx.Interaction.GuildID, ctx.Interaction.ID, cacheItem.Model, resp.usage.PromptTokens, resp.usage.CompletionTokens, resp.usage.TotalTokens)
+	log.Printf("[GID: %s, i.ID: %s] OpenRouter Request [Model: %s] responded with a usage: [PromptTokens: %d, CompletionTokens: %d, TotalTokens: %d]\n", ctx.Interaction.GuildID, ctx.Interaction.ID, cacheItem.Model, resp.usage.PromptTokens, resp.usage.CompletionTokens, resp.usage.TotalTokens)
 
 	messages := splitMessage(resp.content)
 	err = utils.DiscordChannelMessageEdit(ctx.Session, channelMessage.ID, channelMessage.ChannelID, &messages[0], nil)

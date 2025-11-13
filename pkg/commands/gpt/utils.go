@@ -11,6 +11,7 @@ import (
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/constants"
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/utils"
 	discord "github.com/bwmarrin/discordgo"
 	"github.com/sashabaranov/go-openai"
@@ -42,13 +43,64 @@ func shouldHandleMessageType(t discord.MessageType) bool {
 
 type chatGPTResponse struct {
 	content string
-	usage   openai.Usage
+	usage   openrouter.Usage
+}
+
+func sendOpenRouterRequest(client *openrouter.Client, cacheItem *MessagesCacheData) (*chatGPTResponse, error) {
+	messages := cacheItem.Messages
+	if cacheItem.SystemMessage != nil {
+		messages = append([]openrouter.ChatCompletionMessage{*cacheItem.SystemMessage}, messages...)
+	}
+	req := openrouter.ChatCompletionRequest{
+		Model:    cacheItem.Model,
+		Messages: messages,
+	}
+
+	if cacheItem.Temperature != nil {
+		req.Temperature = cacheItem.Temperature
+	}
+
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		req,
+	)
+	if err != nil {
+		return nil, err
+	}
+	responseContent := resp.Choices[0].Message.Content
+	cacheItem.Messages = append(cacheItem.Messages, openrouter.ChatCompletionMessage{
+		Role:    "assistant",
+		Content: responseContent,
+	})
+	cacheItem.TokenCount = resp.Usage.TotalTokens
+	return &chatGPTResponse{
+		content: responseContent,
+		usage:   resp.Usage,
+	}, nil
 }
 
 func sendChatGPTRequest(client *openai.Client, cacheItem *MessagesCacheData) (*chatGPTResponse, error) {
-	messages := cacheItem.Messages
+	// This function is kept for backward compatibility but should not be used with OpenRouter
+	// Convert OpenRouter messages to OpenAI format for legacy support
+	openaiMessages := make([]openai.ChatCompletionMessage, len(cacheItem.Messages))
+	for i, msg := range cacheItem.Messages {
+		openaiMessages[i] = openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+	
+	var systemMessage *openai.ChatCompletionMessage
 	if cacheItem.SystemMessage != nil {
-		messages = append([]openai.ChatCompletionMessage{*cacheItem.SystemMessage}, messages...)
+		systemMessage = &openai.ChatCompletionMessage{
+			Role:    cacheItem.SystemMessage.Role,
+			Content: cacheItem.SystemMessage.Content,
+		}
+	}
+
+	messages := openaiMessages
+	if systemMessage != nil {
+		messages = append([]openai.ChatCompletionMessage{*systemMessage}, messages...)
 	}
 	req := openai.ChatCompletionRequest{
 		Model:    cacheItem.Model,
@@ -67,14 +119,18 @@ func sendChatGPTRequest(client *openai.Client, cacheItem *MessagesCacheData) (*c
 		return nil, err
 	}
 	responseContent := resp.Choices[0].Message.Content
-	cacheItem.Messages = append(cacheItem.Messages, openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleAssistant,
+	cacheItem.Messages = append(cacheItem.Messages, openrouter.ChatCompletionMessage{
+		Role:    "assistant",
 		Content: responseContent,
 	})
 	cacheItem.TokenCount = resp.Usage.TotalTokens
 	return &chatGPTResponse{
 		content: responseContent,
-		usage:   resp.Usage,
+		usage:   openrouter.Usage{
+			PromptTokens:     resp.Usage.PromptTokens,
+			CompletionTokens: resp.Usage.CompletionTokens,
+			TotalTokens:      resp.Usage.TotalTokens,
+		},
 	}, nil
 }
 
@@ -138,13 +194,16 @@ func parseInteractionReply(discordMessage *discord.Message) (prompt string, cont
 }
 
 func modelTruncateLimit(model string) *int {
+	// Extract base model for OpenRouter format
+	baseModel := extractBaseModel(model)
+	
 	var truncateLimit int
-	switch model {
-	case openai.GPT3Dot5Turbo, openai.GPT3Dot5Turbo0301:
+	switch baseModel {
+	case "gpt-3.5-turbo":
 		truncateLimit = gptTruncateLimitGPT3Dot5Turbo0301
-	case openai.GPT4, openai.GPT40314:
+	case "gpt-4":
 		truncateLimit = gptTruncateLimitGPT40314
-	case openai.GPT432K, openai.GPT432K0314:
+	case "gpt-4-32k":
 		truncateLimit = gptTruncateLimitGPT432K0314
 	default:
 		//to be implemented
@@ -173,6 +232,37 @@ func generateCost(usage openai.Usage, model string) string {
 	return fmt.Sprintf("\nLLM Cost: $%f", cost)
 }
 
+func generateOpenRouterCost(usage openrouter.Usage, model string) string {
+	// OpenRouter provides cost information directly in the response
+	if usage.TotalCost > 0 {
+		return fmt.Sprintf("\nLLM Cost: $%.6f", usage.TotalCost)
+	}
+	
+	// Fallback to estimated cost based on model type for OpenRouter models
+	var cost float64
+	
+	// Extract base model from OpenRouter format (e.g., "openai/gpt-4" -> "gpt-4")
+	baseModel := model
+	if strings.Contains(model, "/") {
+		parts := strings.Split(model, "/")
+		if len(parts) > 1 {
+			baseModel = parts[1]
+		}
+	}
+	
+	switch baseModel {
+	case "gpt-3.5-turbo":
+		cost = float64(usage.PromptTokens)*gptPricePerPromptTokenGPT3Dot5Turbo0613 + float64(usage.CompletionTokens)*gptPricePerCompletionTokenGPT3Dot5Turbo0613
+	case "gpt-4":
+		cost = float64(usage.PromptTokens)*gptPricePerPromptTokenGPT40613 + float64(usage.CompletionTokens)*gptPricePerCompletionTokenGPT40613
+	default:
+		// For unknown models, don't show cost estimation
+		return ""
+	}
+
+	return fmt.Sprintf("\nEstimated Cost: $%.6f", cost)
+}
+
 func adjustMessageTokens(cacheItem *MessagesCacheData) {
 	truncateLimit := modelTruncateLimit(cacheItem.Model)
 	if truncateLimit == nil {
@@ -182,7 +272,7 @@ func adjustMessageTokens(cacheItem *MessagesCacheData) {
 	for cacheItem.TokenCount > *truncateLimit {
 		message := cacheItem.Messages[0]
 		cacheItem.Messages = cacheItem.Messages[1:]
-		removedTokens := countMessageTokens(message, cacheItem.Model)
+		removedTokens := countOpenRouterMessageTokens(message, cacheItem.Model)
 		if removedTokens == nil {
 			return
 		}
@@ -196,7 +286,7 @@ func isCacheItemWithinTruncateLimit(cacheItem *MessagesCacheData) (ok bool, coun
 		return true, 0
 	}
 
-	tokens := countAllMessagesTokens(cacheItem.SystemMessage, cacheItem.Messages, cacheItem.Model)
+	tokens := countAllOpenRouterMessagesTokens(cacheItem.SystemMessage, cacheItem.Messages, cacheItem.Model)
 	if tokens == nil {
 		return true, 0
 	}
@@ -205,7 +295,7 @@ func isCacheItemWithinTruncateLimit(cacheItem *MessagesCacheData) (ok bool, coun
 	return *tokens <= *truncateLimit, *tokens
 }
 
-func generateThreadTitleBasedOnInitialPrompt(ctx *bot.Context, client *openai.Client, threadID string, messages []openai.ChatCompletionChoice) {
+func generateThreadTitleBasedOnInitialPrompt(ctx *bot.Context, client *openrouter.Client, threadID string, messages []openrouter.ChatCompletionChoice) {
 	conversation := make([]map[string]string, len(messages))
 	for i, msg := range messages {
 		conversation[i] = map[string]string{
@@ -221,27 +311,45 @@ func generateThreadTitleBasedOnInitialPrompt(ctx *bot.Context, client *openai.Cl
 
 	prompt := fmt.Sprintf("%s\nGenerate a short and concise title summarizing the conversation in the same language. The title must not contain any quotes. The title should be no longer than 60 characters:", conversationText)
 
-	resp, err := client.CreateCompletion(context.Background(), openai.CompletionRequest{
-		Model:       openai.GPT3TextDavinci003,
-		Prompt:      prompt,
-		Temperature: 0.5,
-		MaxTokens:   75,
+	// Use chat completion instead of completion for OpenRouter
+	resp, err := client.CreateChatCompletion(context.Background(), openrouter.ChatCompletionRequest{
+		Model: "openai/gpt-3.5-turbo", // Use a reliable model for title generation
+		Messages: []openrouter.ChatCompletionMessage{
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+		Temperature: func() *float32 { t := float32(0.5); return &t }(),
+		MaxTokens:   func() *int { t := 75; return &t }(),
 	})
 	if err != nil {
 		log.Printf("[GID: %s, threadID: %s] Failed to generate thread title with the error: %v\n", ctx.Interaction.GuildID, threadID, err)
 		return
 	}
 
+	title := resp.Choices[0].Message.Content
+	if len(title) > 60 {
+		title = title[:60]
+	}
+
 	_, err = ctx.Session.ChannelEditComplex(threadID, &discord.ChannelEdit{
-		Name: resp.Choices[0].Text,
+		Name: title,
 	})
 	if err != nil {
 		log.Printf("[GID: %s, i.ID: %s] Failed to update thread title with the error: %v\n", ctx.Interaction.GuildID, threadID, err)
 	}
 }
 
-func attachUsageInfo(s *discord.Session, m *discord.Message, usage openai.Usage, model string) {
-	extraInfo := fmt.Sprintf("Completion Tokens: %d, Total: %d%s", usage.CompletionTokens, usage.TotalTokens, generateCost(usage, model))
+func attachUsageInfo(s *discord.Session, m *discord.Message, usage openrouter.Usage, model string) {
+	var extraInfo string
+	if usage.TotalCost > 0 {
+		// OpenRouter provides cost information directly
+		extraInfo = fmt.Sprintf("Completion Tokens: %d, Total: %d, Cost: $%.6f", usage.CompletionTokens, usage.TotalTokens, usage.TotalCost)
+	} else {
+		// Fallback to token count only if cost is not available
+		extraInfo = fmt.Sprintf("Completion Tokens: %d, Total: %d%s", usage.CompletionTokens, usage.TotalTokens, generateOpenRouterCost(usage, model))
+	}
 
 	utils.DiscordChannelMessageEdit(s, m.ID, m.ChannelID, nil, []*discord.MessageEmbed{
 		{

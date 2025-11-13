@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/commands"
@@ -20,10 +22,13 @@ type Config struct {
 		Guild          string `yaml:"guild"`
 		RemoveCommands bool   `yaml:"removeCommands"`
 	} `yaml:"discord"`
-	OpenAI struct {
+	OpenRouter struct {
 		APIKey           string   `yaml:"apiKey"`
+		BaseURL          string   `yaml:"baseURL"`
+		SiteURL          string   `yaml:"siteURL"`
+		SiteName         string   `yaml:"siteName"`
 		CompletionModels []string `yaml:"completionModels"`
-	} `yaml:"openAI"`
+	} `yaml:"openRouter"`
 }
 
 func (c *Config) ReadFromFile(file string) error {
@@ -35,7 +40,48 @@ func (c *Config) ReadFromFile(file string) error {
 	if err != nil {
 		return err
 	}
-	return err
+	return c.Validate()
+}
+
+func (c *Config) Validate() error {
+	// Validate Discord configuration
+	if c.Discord.Token == "" {
+		return fmt.Errorf("discord token is required")
+	}
+
+	// Validate OpenRouter configuration
+	if c.OpenRouter.APIKey == "" {
+		return fmt.Errorf("openRouter API key is required")
+	}
+
+	// Validate API key format (OpenRouter keys start with "sk-or-v1-")
+	if !strings.HasPrefix(c.OpenRouter.APIKey, "sk-or-v1-") {
+		return fmt.Errorf("invalid OpenRouter API key format, must start with 'sk-or-v1-'")
+	}
+
+	// Set default base URL if not provided
+	if c.OpenRouter.BaseURL == "" {
+		c.OpenRouter.BaseURL = "https://openrouter.ai/api/v1"
+	}
+
+	// Validate base URL format
+	if !strings.HasPrefix(c.OpenRouter.BaseURL, "http://") && !strings.HasPrefix(c.OpenRouter.BaseURL, "https://") {
+		return fmt.Errorf("invalid OpenRouter base URL format, must start with http:// or https://")
+	}
+
+	// Set default completion models if not provided
+	if len(c.OpenRouter.CompletionModels) == 0 {
+		c.OpenRouter.CompletionModels = []string{"openai/gpt-3.5-turbo"}
+	}
+
+	// Validate model names (should contain provider prefix)
+	for _, model := range c.OpenRouter.CompletionModels {
+		if !strings.Contains(model, "/") {
+			return fmt.Errorf("invalid OpenRouter model name '%s', must include provider prefix (e.g., 'openai/gpt-4')", model)
+		}
+	}
+
+	return nil
 }
 
 func init() {
@@ -65,10 +111,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Inavalid parameters:%v", err)
 	}
-	if config.OpenAI.APIKey != "" {
-		openaiClient = openai.NewClient(config.OpenAI.APIKey)
+	if config.OpenRouter.APIKey != "" {
+		openaiClient = openai.NewClient(config.OpenRouter.APIKey)
 		discordBot.Router.Register(commands.ChatCommand(&commands.ChatCommandParams{OpenAIClient: openaiClient,
-			OpenAICompletionModels: config.OpenAI.CompletionModels,
+			OpenAICompletionModels: config.OpenRouter.CompletionModels,
 			GPTMessagesCache:       gptMessagesCache,
 			IgnoredChannelsCache:   &ignoredChannelsCache}))
 		discordBot.Router.Register(commands.ImageCommand(openaiClient))
