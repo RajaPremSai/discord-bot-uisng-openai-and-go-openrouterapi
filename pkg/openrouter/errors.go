@@ -202,7 +202,7 @@ func categorizeError(statusCode int, errorCode, errorType string, headers http.H
 type RetryableFunc func() error
 
 // WithRetry executes a function with exponential backoff retry logic
-func WithRetry(ctx context.Context, config *RetryConfig, fn RetryableFunc) error {
+func WithRetry(ctx context.Context, config *RetryConfig, logger *Logger, fn RetryableFunc) error {
 	if config == nil {
 		config = DefaultRetryConfig()
 	}
@@ -229,8 +229,16 @@ func WithRetry(ctx context.Context, config *RetryConfig, fn RetryableFunc) error
 				return err // Don't retry non-retryable errors
 			}
 
+			// Log rate limit hits
+			if orErr.StatusCode == http.StatusTooManyRequests && logger != nil {
+				logger.LogRateLimitHit(orErr.RetryAfter)
+			}
+
 			// Use the retry-after duration if specified
 			if orErr.RetryAfter > 0 {
+				if logger != nil {
+					logger.LogRetryAttempt(attempt+1, config.MaxRetries, orErr.RetryAfter, err)
+				}
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
@@ -242,6 +250,11 @@ func WithRetry(ctx context.Context, config *RetryConfig, fn RetryableFunc) error
 
 		// Calculate delay with exponential backoff
 		delay := calculateDelay(attempt, config)
+
+		// Log retry attempt
+		if logger != nil {
+			logger.LogRetryAttempt(attempt+1, config.MaxRetries, delay, err)
+		}
 
 		// Wait for the delay or context cancellation
 		select {
