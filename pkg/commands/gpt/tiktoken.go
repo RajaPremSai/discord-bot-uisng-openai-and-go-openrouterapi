@@ -105,8 +105,10 @@ func _tokensConfiguration(model string) (ok bool, tokensPerMessage int, tokensPe
 	case openai.GPT3Dot5Turbo,
 		openai.GPT3Dot5Turbo0613,
 		openai.GPT3Dot5Turbo16K,
-		openai.GPT3Dot5Turbo16K0613,
-		openai.GPT4,
+		openai.GPT3Dot5Turbo16K0613:
+		tokensPerMessage = 3
+		tokensPerName = 1
+	case openai.GPT4,
 		openai.GPT40314,
 		openai.GPT40613,
 		openai.GPT432K0314,
@@ -114,10 +116,19 @@ func _tokensConfiguration(model string) (ok bool, tokensPerMessage int, tokensPe
 		tokensPerMessage = 3
 		tokensPerName = 1
 	default:
-		// For unknown models (including non-OpenAI models from OpenRouter),
-		// use GPT-4 configuration as a reasonable default
-		tokensPerMessage = 3
-		tokensPerName = 1
+		// For unknown models (including OpenRouter models),
+		// check if it's a known model family and use appropriate defaults
+		if strings.Contains(model, "gpt-4") || strings.Contains(model, "claude") {
+			tokensPerMessage = 3
+			tokensPerName = 1
+		} else if strings.Contains(model, "gpt-3.5") {
+			tokensPerMessage = 3
+			tokensPerName = 1
+		} else {
+			// Use GPT-4 configuration as a reasonable default for unknown models
+			tokensPerMessage = 3
+			tokensPerName = 1
+		}
 		ok = true
 	}
 	return

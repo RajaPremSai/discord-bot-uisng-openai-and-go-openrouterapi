@@ -97,7 +97,7 @@
   - Add proper logging for OpenRouter client initialization
   - _Requirements: 1.1, 4.1, 6.3_
 
-- [ ] 13. Update message handling and caching for OpenRouter compatibility
+- [x] 13. Update message handling and caching for OpenRouter compatibility
 
   - Modify `pkg/commands/gpt/message_handler.go` to work with OpenRouter responses
   - Update message caching structures to handle OpenRouter model names

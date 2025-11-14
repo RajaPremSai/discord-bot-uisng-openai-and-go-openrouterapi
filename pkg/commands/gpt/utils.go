@@ -198,16 +198,24 @@ func modelTruncateLimit(model string) *int {
 	baseModel := extractBaseModel(model)
 	
 	var truncateLimit int
-	switch baseModel {
-	case "gpt-3.5-turbo":
+	switch {
+	case strings.Contains(baseModel, "gpt-3.5-turbo-16k"):
+		truncateLimit = 14000 // Conservative limit for 16k context
+	case strings.Contains(baseModel, "gpt-3.5-turbo"):
 		truncateLimit = gptTruncateLimitGPT3Dot5Turbo0301
-	case "gpt-4":
-		truncateLimit = gptTruncateLimitGPT40314
-	case "gpt-4-32k":
+	case strings.Contains(baseModel, "gpt-4-32k"):
 		truncateLimit = gptTruncateLimitGPT432K0314
+	case strings.Contains(baseModel, "gpt-4-turbo"):
+		truncateLimit = 120000 // Conservative limit for 128k context
+	case strings.Contains(baseModel, "gpt-4"):
+		truncateLimit = gptTruncateLimitGPT40314
+	case strings.Contains(baseModel, "claude-3"):
+		truncateLimit = 180000 // Conservative limit for 200k context
+	case strings.Contains(baseModel, "claude"):
+		truncateLimit = 90000 // Conservative limit for 100k context
 	default:
-		//to be implemented
-		return nil
+		// For unknown models, use a conservative default
+		truncateLimit = gptTruncateLimitGPT40314
 	}
 	return &truncateLimit
 }

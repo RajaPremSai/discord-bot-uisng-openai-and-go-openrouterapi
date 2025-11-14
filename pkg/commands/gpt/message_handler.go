@@ -122,6 +122,13 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openrouter.Client, m
 
 					cacheItem.SystemMessage = systemMessage
 					cacheItem.Model = model
+					
+					// Validate the OpenRouter model format
+					if !cacheItem.ValidateOpenRouterModel() {
+						log.Printf("[GID: %s, CHID: %s, MID: %s] Invalid OpenRouter model format: %s\n", ctx.Message.GuildID, ctx.Message.ChannelID, ctx.Message.ID, model)
+						isGPTThread = false
+						break
+					}
 				} else if !shouldHandleMessageType(value.Type) {
 					// ignore message types that are
 					// not related to conversation
@@ -202,7 +209,7 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openrouter.Client, m
 		}
 	}()
 
-	log.Printf("[GID: %s, CHID: %s] OpenRouter Request invoked with [Model: %s]. Current cache size: %v\n", ctx.Message.GuildID, ctx.Message.ChannelID, cacheItem.Model, len(cacheItem.Messages))
+	log.Printf("[GID: %s, CHID: %s] OpenRouter Request invoked with [Model: %s]. Current cache size: %v, Token count: %d\n", ctx.Message.GuildID, ctx.Message.ChannelID, cacheItem.Model, len(cacheItem.Messages), cacheItem.TokenCount)
 
 	resp, err := sendOpenRouterRequest(client, cacheItem)
 
@@ -220,18 +227,21 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openrouter.Client, m
 		// Check if it's an OpenRouter-specific error and provide better messaging
 		if openRouterErr, ok := err.(*openrouter.ErrorResponse); ok {
 			switch openRouterErr.ErrorDetail.Code {
-			case "insufficient_quota":
+			case "insufficient_quota", "insufficient_credits":
 				errorTitle = "❌ Insufficient Credits"
 				errorDescription = "OpenRouter account has insufficient credits. Please add credits to continue."
-			case "model_not_found":
+			case "model_not_found", "model_unavailable":
 				errorTitle = "❌ Model Unavailable"
-				errorDescription = fmt.Sprintf("The requested model '%s' is not available. Please try a different model.", cacheItem.Model)
-			case "rate_limit_exceeded":
+				errorDescription = fmt.Sprintf("The requested model '%s' is not available. Please try a different model.", normalizeOpenRouterModelName(cacheItem.Model))
+			case "rate_limit_exceeded", "rate_limited":
 				errorTitle = "❌ Rate Limit Exceeded"
 				errorDescription = "Too many requests. Please wait a moment before trying again."
-			case "invalid_request_error":
+			case "invalid_request_error", "invalid_request":
 				errorTitle = "❌ Invalid Request"
 				errorDescription = "The request was invalid. Please check your input and try again."
+			case "context_length_exceeded":
+				errorTitle = "❌ Context Length Exceeded"
+				errorDescription = fmt.Sprintf("The conversation is too long for model '%s'. Please start a new thread.", normalizeOpenRouterModelName(cacheItem.Model))
 			}
 		}
 		

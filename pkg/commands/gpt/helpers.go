@@ -48,3 +48,31 @@ func reverseOpenRouterMessages(messages *[]openrouter.ChatCompletionMessage) {
 		(*messages)[i], (*messages)[length-i-1] = (*messages)[length-i-1], (*messages)[i]
 	}
 }
+
+// normalizeOpenRouterModelName returns a user-friendly model name for display
+// e.g., "openai/gpt-4" -> "GPT-4", "anthropic/claude-3-sonnet" -> "Claude-3-Sonnet"
+func normalizeOpenRouterModelName(model string) string {
+	if strings.Contains(model, "/") {
+		parts := strings.Split(model, "/")
+		if len(parts) > 1 {
+			baseModel := parts[1]
+			// Capitalize common model names for better display
+			switch {
+			case strings.HasPrefix(baseModel, "gpt"):
+				return strings.ToUpper(baseModel)
+			case strings.HasPrefix(baseModel, "claude"):
+				// Manually capitalize first letter of each word for Claude models
+				words := strings.Split(baseModel, "-")
+				for i, word := range words {
+					if len(word) > 0 {
+						words[i] = strings.ToUpper(word[:1]) + word[1:]
+					}
+				}
+				return strings.Join(words, "-")
+			default:
+				return baseModel
+			}
+		}
+	}
+	return model
+}
