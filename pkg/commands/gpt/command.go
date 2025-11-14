@@ -1,6 +1,7 @@
 package gpt
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/bot"
@@ -20,6 +21,17 @@ func validateOpenRouterModel(model string) bool {
 // getModelDisplayName returns a user-friendly display name for the model
 func getModelDisplayName(model string, isDefault bool) string {
 	name := model
+	
+	// Handle OpenRouter model format (e.g., "openai/gpt-4" -> "gpt-4 (OpenAI)")
+	if strings.Contains(model, "/") {
+		parts := strings.Split(model, "/")
+		if len(parts) >= 2 {
+			provider := strings.Title(parts[0])
+			modelName := parts[1]
+			name = fmt.Sprintf("%s (%s)", modelName, provider)
+		}
+	}
+	
 	if isDefault {
 		name += " (Default)"
 	}

@@ -20,16 +20,23 @@ func TestValidateOpenRouterModel(t *testing.T) {
 }
 
 func TestGetModelDisplayName(t *testing.T) {
-	// Test default model
+	// Test default model with OpenRouter format
 	result := getModelDisplayName("openai/gpt-4", true)
-	expected := "openai/gpt-4 (Default)"
+	expected := "gpt-4 (Openai) (Default)"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
 	
-	// Test non-default model
+	// Test non-default model with OpenRouter format
 	result = getModelDisplayName("anthropic/claude-3-sonnet", false)
-	expected = "anthropic/claude-3-sonnet"
+	expected = "claude-3-sonnet (Anthropic)"
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+	
+	// Test model without provider
+	result = getModelDisplayName("gpt-3.5-turbo", false)
+	expected = "gpt-3.5-turbo"
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}

@@ -1,6 +1,7 @@
 package gpt
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -201,7 +202,7 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openrouter.Client, m
 		}
 	}()
 
-	log.Printf("[GID: %s, CHID: %s] ChatGPT Request invoked with [Model: %s]. Current cache size: %v\n", ctx.Message.GuildID, ctx.Message.ChannelID, cacheItem.Model, len(cacheItem.Messages))
+	log.Printf("[GID: %s, CHID: %s] OpenRouter Request invoked with [Model: %s]. Current cache size: %v\n", ctx.Message.GuildID, ctx.Message.ChannelID, cacheItem.Model, len(cacheItem.Messages))
 
 	resp, err := sendOpenRouterRequest(client, cacheItem)
 
@@ -209,18 +210,40 @@ func chatGPTMessageHandler(ctx *bot.MessageContext, client *openrouter.Client, m
 	done <- true
 
 	if err != nil {
-		// ChatGPT failed for whatever reason, tell users about it
-		log.Printf("[GID: %s, CHID: %s] ChatGPT request ChatCompletion failed with the error: %v\n", ctx.Message.GuildID, ctx.Message.ChannelID, err)
+		// OpenRouter request failed, provide detailed error information
+		log.Printf("[GID: %s, CHID: %s] OpenRouter request ChatCompletion failed with the error: %v\n", ctx.Message.GuildID, ctx.Message.ChannelID, err)
 		ctx.AddReaction(gptEmojiErr)
+		
+		errorTitle := "❌ OpenRouter API Error"
+		errorDescription := err.Error()
+		
+		// Check if it's an OpenRouter-specific error and provide better messaging
+		if openRouterErr, ok := err.(*openrouter.ErrorResponse); ok {
+			switch openRouterErr.ErrorDetail.Code {
+			case "insufficient_quota":
+				errorTitle = "❌ Insufficient Credits"
+				errorDescription = "OpenRouter account has insufficient credits. Please add credits to continue."
+			case "model_not_found":
+				errorTitle = "❌ Model Unavailable"
+				errorDescription = fmt.Sprintf("The requested model '%s' is not available. Please try a different model.", cacheItem.Model)
+			case "rate_limit_exceeded":
+				errorTitle = "❌ Rate Limit Exceeded"
+				errorDescription = "Too many requests. Please wait a moment before trying again."
+			case "invalid_request_error":
+				errorTitle = "❌ Invalid Request"
+				errorDescription = "The request was invalid. Please check your input and try again."
+			}
+		}
+		
 		ctx.EmbedReply(&discord.MessageEmbed{
-			Title:       "❌ OpenRouter API failed",
-			Description: err.Error(),
+			Title:       errorTitle,
+			Description: errorDescription,
 			Color:       0xff0000,
 		})
 		return
 	}
 
-	log.Printf("[GID: %s, CHID: %s] ChatGPT Request [Model: %s] responded with a usage: [PromptTokens: %d, CompletionTokens: %d, TotalTokens: %d]\n", ctx.Message.GuildID, ctx.Message.ChannelID, cacheItem.Model, resp.usage.PromptTokens, resp.usage.CompletionTokens, resp.usage.TotalTokens)
+	log.Printf("[GID: %s, CHID: %s] OpenRouter Request [Model: %s] responded with a usage: [PromptTokens: %d, CompletionTokens: %d, TotalTokens: %d]\n", ctx.Message.GuildID, ctx.Message.ChannelID, cacheItem.Model, resp.usage.PromptTokens, resp.usage.CompletionTokens, resp.usage.TotalTokens)
 
 	messages := splitMessage(resp.content)
 	var replyMessage *discord.Message

@@ -114,8 +114,11 @@ func _tokensConfiguration(model string) (ok bool, tokensPerMessage int, tokensPe
 		tokensPerMessage = 3
 		tokensPerName = 1
 	default:
-		ok = false
-		return
+		// For unknown models (including non-OpenAI models from OpenRouter),
+		// use GPT-4 configuration as a reasonable default
+		tokensPerMessage = 3
+		tokensPerName = 1
+		ok = true
 	}
 	return
 }
@@ -131,3 +134,4 @@ func extractBaseModel(model string) string {
 	}
 	return model
 }
+

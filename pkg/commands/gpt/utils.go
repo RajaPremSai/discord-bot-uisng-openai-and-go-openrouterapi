@@ -355,7 +355,7 @@ func attachUsageInfo(s *discord.Session, m *discord.Message, usage openrouter.Us
 		{
 			Footer: &discord.MessageEmbedFooter{
 				Text:    extraInfo,
-				IconURL: constants.OpenAIBlackIconURL,
+				IconURL: constants.OpenRouterIconURL,
 			},
 		},
 	})
