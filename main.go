@@ -10,7 +10,7 @@ import (
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/commands"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/commands/gpt"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/constants"
-	"github.com/sashabaranov/go-openai"
+	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 
 	// "github.com/stretchr/testify/assert/yaml"
 	"gopkg.in/yaml.v3"
@@ -28,6 +28,7 @@ type Config struct {
 		SiteURL          string   `yaml:"siteURL"`
 		SiteName         string   `yaml:"siteName"`
 		CompletionModels []string `yaml:"completionModels"`
+		ImageModels      []string `yaml:"imageModels"`
 	} `yaml:"openRouter"`
 }
 
@@ -74,10 +75,22 @@ func (c *Config) Validate() error {
 		c.OpenRouter.CompletionModels = []string{"openai/gpt-3.5-turbo"}
 	}
 
-	// Validate model names (should contain provider prefix)
+	// Set default image models if not provided
+	if len(c.OpenRouter.ImageModels) == 0 {
+		c.OpenRouter.ImageModels = []string{"openai/dall-e-2"}
+	}
+
+	// Validate completion model names (should contain provider prefix)
 	for _, model := range c.OpenRouter.CompletionModels {
 		if !strings.Contains(model, "/") {
-			return fmt.Errorf("invalid OpenRouter model name '%s', must include provider prefix (e.g., 'openai/gpt-4')", model)
+			return fmt.Errorf("invalid OpenRouter completion model name '%s', must include provider prefix (e.g., 'openai/gpt-4')", model)
+		}
+	}
+
+	// Validate image model names (should contain provider prefix)
+	for _, model := range c.OpenRouter.ImageModels {
+		if !strings.Contains(model, "/") {
+			return fmt.Errorf("invalid OpenRouter image model name '%s', must include provider prefix (e.g., 'openai/dall-e-2')", model)
 		}
 	}
 
@@ -90,8 +103,8 @@ func init() {
 }
 
 var (
-	discordBot   *bot.Bot
-	openaiClient *openai.Client
+	discordBot      *bot.Bot
+	openrouterClient *openrouter.Client
 
 	gptMessagesCache     *gpt.MessagesCache
 	ignoredChannelsCache = make(gpt.IgnoredChannelsCache)
@@ -112,12 +125,23 @@ func main() {
 		log.Fatalf("Inavalid parameters:%v", err)
 	}
 	if config.OpenRouter.APIKey != "" {
-		openaiClient = openai.NewClient(config.OpenRouter.APIKey)
-		discordBot.Router.Register(commands.ChatCommand(&commands.ChatCommandParams{OpenAIClient: openaiClient,
-			OpenAICompletionModels: config.OpenRouter.CompletionModels,
-			GPTMessagesCache:       gptMessagesCache,
-			IgnoredChannelsCache:   &ignoredChannelsCache}))
-		discordBot.Router.Register(commands.ImageCommand(openaiClient))
+		openrouterClient = openrouter.NewClientWithConfig(openrouter.ClientConfig{
+			APIKey:   config.OpenRouter.APIKey,
+			BaseURL:  config.OpenRouter.BaseURL,
+			SiteURL:  config.OpenRouter.SiteURL,
+			SiteName: config.OpenRouter.SiteName,
+		})
+		
+		// Get default image model (first one in the list)
+		defaultImageModel := config.OpenRouter.ImageModels[0]
+		
+		discordBot.Router.Register(commands.ChatCommand(&commands.ChatCommandParams{
+			OpenRouterClient:     openrouterClient,
+			CompletionModels:     config.OpenRouter.CompletionModels,
+			GPTMessagesCache:     gptMessagesCache,
+			IgnoredChannelsCache: &ignoredChannelsCache,
+		}))
+		discordBot.Router.Register(commands.ImageCommand(openrouterClient, defaultImageModel))
 	}
 	log.Printf("Loaded Discord Token: %s", config.Discord.Token)
 	discordBot.Router.Register(commands.InfoCommand())

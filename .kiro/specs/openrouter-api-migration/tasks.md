@@ -75,14 +75,13 @@
 
 - [x] 10. Update DALLE command handlers to use OpenRouter client
 
-
   - Modify `pkg/commands/dalle/handler.go` to use OpenRouter client instead of OpenAI
   - Update `imageHandler` function to work with OpenRouter image generation API
   - Adapt image parameter handling for OpenRouter image models
   - Update error handling for OpenRouter image generation responses
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 11. Update DALLE command configuration for OpenRouter
+- [x] 11. Update DALLE command configuration for OpenRouter
 
   - Modify `pkg/commands/dalle/command.go` to work with OpenRouter image models
   - Update image size and parameter options for OpenRouter compatibility

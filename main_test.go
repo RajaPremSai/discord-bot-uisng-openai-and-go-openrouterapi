@@ -20,10 +20,12 @@ func createValidConfig() Config {
 			SiteURL          string   `yaml:"siteURL"`
 			SiteName         string   `yaml:"siteName"`
 			CompletionModels []string `yaml:"completionModels"`
+			ImageModels      []string `yaml:"imageModels"`
 		}{
 			APIKey:           "sk-or-v1-test-key",
 			BaseURL:          "https://openrouter.ai/api/v1",
 			CompletionModels: []string{"openai/gpt-4"},
+			ImageModels:      []string{"openai/dall-e-2"},
 		},
 	}
 }
@@ -58,6 +60,12 @@ func createConfigWithInvalidModel() Config {
 	return config
 }
 
+func createConfigWithInvalidImageModel() Config {
+	config := createValidConfig()
+	config.OpenRouter.ImageModels = []string{"dall-e-2"} // Missing provider prefix
+	return config
+}
+
 func createConfigWithDefaults() Config {
 	return Config{
 		Discord: struct {
@@ -73,9 +81,10 @@ func createConfigWithDefaults() Config {
 			SiteURL          string   `yaml:"siteURL"`
 			SiteName         string   `yaml:"siteName"`
 			CompletionModels []string `yaml:"completionModels"`
+			ImageModels      []string `yaml:"imageModels"`
 		}{
 			APIKey: "sk-or-v1-test-key",
-			// BaseURL and CompletionModels will be set to defaults
+			// BaseURL, CompletionModels, and ImageModels will be set to defaults
 		},
 	}
 }
@@ -117,10 +126,16 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "invalid OpenRouter base URL format, must start with http:// or https://",
 		},
 		{
-			name:    "invalid model name format",
+			name:    "invalid completion model name format",
 			config:  createConfigWithInvalidModel(),
 			wantErr: true,
-			errMsg:  "invalid OpenRouter model name 'gpt-4', must include provider prefix (e.g., 'openai/gpt-4')",
+			errMsg:  "invalid OpenRouter completion model name 'gpt-4', must include provider prefix (e.g., 'openai/gpt-4')",
+		},
+		{
+			name:    "invalid image model name format",
+			config:  createConfigWithInvalidImageModel(),
+			wantErr: true,
+			errMsg:  "invalid OpenRouter image model name 'dall-e-2', must include provider prefix (e.g., 'openai/dall-e-2')",
 		},
 		{
 			name:    "config with defaults applied",
@@ -155,6 +170,11 @@ func TestConfig_Validate(t *testing.T) {
 						t.Errorf("Config.Validate() did not set default CompletionModels")
 					}
 				}
+				if len(tt.config.OpenRouter.ImageModels) == 0 {
+					if len(tt.config.OpenRouter.ImageModels) != 1 || tt.config.OpenRouter.ImageModels[0] != "openai/dall-e-2" {
+						t.Errorf("Config.Validate() did not set default ImageModels")
+					}
+				}
 			}
 		})
 	}
@@ -175,6 +195,9 @@ openRouter:
   completionModels:
     - "openai/gpt-4"
     - "openai/gpt-3.5-turbo"
+  imageModels:
+    - "openai/dall-e-2"
+    - "openai/dall-e-3"
 `
 
 	// Write test config to temporary file
@@ -212,6 +235,9 @@ openRouter:
 	}
 	if len(config.OpenRouter.CompletionModels) != 2 {
 		t.Errorf("Expected 2 completion models, got %d", len(config.OpenRouter.CompletionModels))
+	}
+	if len(config.OpenRouter.ImageModels) != 2 {
+		t.Errorf("Expected 2 image models, got %d", len(config.OpenRouter.ImageModels))
 	}
 }
 
