@@ -113,7 +113,7 @@
   - Write unit tests for logging functionality
   - _Requirements: 6.3, 5.5_
 
-- [ ] 15. Create integration tests for OpenRouter API functionality
+- [x] 15. Create integration tests for OpenRouter API functionality
 
   - Write integration tests for chat completion with real OpenRouter API calls
   - Create integration tests for image generation with OpenRouter API

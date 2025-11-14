@@ -230,3 +230,25 @@ func (r *ImageRequest) UnmarshalJSON(data []byte) error {
 	}
 	return json.Unmarshal(data, &aux)
 }
+
+// Helper functions for creating pointers to primitive types
+
+// IntPtr returns a pointer to the given int value
+func IntPtr(v int) *int {
+	return &v
+}
+
+// Float32Ptr returns a pointer to the given float32 value
+func Float32Ptr(v float32) *float32 {
+	return &v
+}
+
+// StringPtr returns a pointer to the given string value
+func StringPtr(v string) *string {
+	return &v
+}
+
+// BoolPtr returns a pointer to the given bool value
+func BoolPtr(v bool) *bool {
+	return &v
+}

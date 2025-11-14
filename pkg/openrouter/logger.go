@@ -1,7 +1,6 @@
 package openrouter
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -257,7 +256,7 @@ func (l *Logger) LogChatCompletion(req ChatCompletionRequest, resp *ChatCompleti
 		Timestamp:    time.Now(),
 	}
 
-	if resp != nil && resp.Usage != nil {
+	if resp != nil && resp.Usage != (Usage{}) {
 		metrics.PromptTokens = resp.Usage.PromptTokens
 		metrics.CompletionTokens = resp.Usage.CompletionTokens
 		metrics.TotalTokens = resp.Usage.TotalTokens
