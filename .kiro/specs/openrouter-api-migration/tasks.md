@@ -89,7 +89,7 @@
   - Write unit tests for image command option parsing
   - _Requirements: 3.1, 3.2_
 
-- [ ] 12. Update main application initialization for OpenRouter
+- [x] 12. Update main application initialization for OpenRouter
 
   - Modify `main.go` to initialize OpenRouter client instead of OpenAI client
   - Update client initialization with OpenRouter configuration parameters

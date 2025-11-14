@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -125,6 +126,8 @@ func main() {
 		log.Fatalf("Inavalid parameters:%v", err)
 	}
 	if config.OpenRouter.APIKey != "" {
+		log.Printf("Initializing OpenRouter client with base URL: %s", config.OpenRouter.BaseURL)
+		
 		openrouterClient = openrouter.NewClientWithConfig(openrouter.ClientConfig{
 			APIKey:   config.OpenRouter.APIKey,
 			BaseURL:  config.OpenRouter.BaseURL,
@@ -132,16 +135,47 @@ func main() {
 			SiteName: config.OpenRouter.SiteName,
 		})
 		
+		log.Printf("OpenRouter client initialized successfully")
+		if config.OpenRouter.SiteURL != "" {
+			log.Printf("OpenRouter site URL configured: %s", config.OpenRouter.SiteURL)
+		}
+		if config.OpenRouter.SiteName != "" {
+			log.Printf("OpenRouter site name configured: %s", config.OpenRouter.SiteName)
+		}
+		
+		// Test OpenRouter client connection
+		log.Printf("Testing OpenRouter API connection...")
+		ctx := context.Background()
+		if err := openrouterClient.Ping(ctx); err != nil {
+			log.Printf("Warning: OpenRouter API connection test failed: %v", err)
+			log.Printf("Continuing with initialization, but API calls may fail")
+		} else {
+			log.Printf("OpenRouter API connection test successful")
+		}
+		
+		// Log available models
+		log.Printf("Configured completion models: %v", config.OpenRouter.CompletionModels)
+		log.Printf("Configured image models: %v", config.OpenRouter.ImageModels)
+		
 		// Get default image model (first one in the list)
 		defaultImageModel := config.OpenRouter.ImageModels[0]
+		log.Printf("Using default image model: %s", defaultImageModel)
 		
+		// Register commands with OpenRouter client
+		log.Printf("Registering chat command with OpenRouter client")
 		discordBot.Router.Register(commands.ChatCommand(&commands.ChatCommandParams{
 			OpenRouterClient:     openrouterClient,
 			CompletionModels:     config.OpenRouter.CompletionModels,
 			GPTMessagesCache:     gptMessagesCache,
 			IgnoredChannelsCache: &ignoredChannelsCache,
 		}))
+		
+		log.Printf("Registering image command with OpenRouter client")
 		discordBot.Router.Register(commands.ImageCommand(openrouterClient, defaultImageModel))
+		
+		log.Printf("OpenRouter client initialization and command registration completed")
+	} else {
+		log.Printf("Warning: OpenRouter API key not configured, AI commands will not be available")
 	}
 	log.Printf("Loaded Discord Token: %s", config.Discord.Token)
 	discordBot.Router.Register(commands.InfoCommand())
