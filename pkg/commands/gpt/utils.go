@@ -14,7 +14,6 @@ import (
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/utils"
 	discord "github.com/bwmarrin/discordgo"
-	"github.com/sashabaranov/go-openai"
 )
 
 const (
@@ -79,60 +78,7 @@ func sendOpenRouterRequest(client *openrouter.Client, cacheItem *MessagesCacheDa
 	}, nil
 }
 
-func sendChatGPTRequest(client *openai.Client, cacheItem *MessagesCacheData) (*chatGPTResponse, error) {
-	// This function is kept for backward compatibility but should not be used with OpenRouter
-	// Convert OpenRouter messages to OpenAI format for legacy support
-	openaiMessages := make([]openai.ChatCompletionMessage, len(cacheItem.Messages))
-	for i, msg := range cacheItem.Messages {
-		openaiMessages[i] = openai.ChatCompletionMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
-		}
-	}
-	
-	var systemMessage *openai.ChatCompletionMessage
-	if cacheItem.SystemMessage != nil {
-		systemMessage = &openai.ChatCompletionMessage{
-			Role:    cacheItem.SystemMessage.Role,
-			Content: cacheItem.SystemMessage.Content,
-		}
-	}
 
-	messages := openaiMessages
-	if systemMessage != nil {
-		messages = append([]openai.ChatCompletionMessage{*systemMessage}, messages...)
-	}
-	req := openai.ChatCompletionRequest{
-		Model:    cacheItem.Model,
-		Messages: messages,
-	}
-
-	if cacheItem.Temperature != nil {
-		req.Temperature = *cacheItem.Temperature
-	}
-
-	resp, err := client.CreateChatCompletion(
-		context.Background(),
-		req,
-	)
-	if err != nil {
-		return nil, err
-	}
-	responseContent := resp.Choices[0].Message.Content
-	cacheItem.Messages = append(cacheItem.Messages, openrouter.ChatCompletionMessage{
-		Role:    "assistant",
-		Content: responseContent,
-	})
-	cacheItem.TokenCount = resp.Usage.TotalTokens
-	return &chatGPTResponse{
-		content: responseContent,
-		usage:   openrouter.Usage{
-			PromptTokens:     resp.Usage.PromptTokens,
-			CompletionTokens: resp.Usage.CompletionTokens,
-			TotalTokens:      resp.Usage.TotalTokens,
-		},
-	}, nil
-}
 
 func getUrlData(client *http.Client, url string) (string, error) {
 	res, err := client.Get(url)
@@ -220,25 +166,7 @@ func modelTruncateLimit(model string) *int {
 	return &truncateLimit
 }
 
-func generateCost(usage openai.Usage, model string) string {
-	var cost float64
 
-	switch model {
-	case openai.GPT3Dot5Turbo, openai.GPT3Dot5Turbo0301, openai.GPT3Dot5Turbo0613:
-		cost = float64(usage.PromptTokens)*gptPricePerPromptTokenGPT3Dot5Turbo0613 + float64(usage.CompletionTokens)*gptPricePerCompletionTokenGPT3Dot5Turbo0613
-	case openai.GPT3Dot5Turbo16K, openai.GPT3Dot5Turbo16K0613:
-		cost = float64(usage.PromptTokens)*gptPricePerPromptTokenGPT3Dot5Turbo16K0613 + float64(usage.CompletionTokens)*gptPricePerCompletionTokenGPT3Dot5Turbo16K0613
-	case openai.GPT4, openai.GPT40314, openai.GPT40613:
-		cost = float64(usage.PromptTokens)*gptPricePerPromptTokenGPT40613 + float64(usage.CompletionTokens)*gptPricePerCompletionTokenGPT40613
-	case openai.GPT432K, openai.GPT432K0314, openai.GPT432K0613:
-		cost = float64(usage.PromptTokens)*gptPricePerPromptTokenGPT432K0613 + float64(usage.CompletionTokens)*gptPricePerCompletionTokenGPT432K0613
-	default:
-		// to be implemented
-		return ""
-	}
-
-	return fmt.Sprintf("\nLLM Cost: $%f", cost)
-}
 
 func generateOpenRouterCost(usage openrouter.Usage, model string) string {
 	// OpenRouter provides cost information directly in the response

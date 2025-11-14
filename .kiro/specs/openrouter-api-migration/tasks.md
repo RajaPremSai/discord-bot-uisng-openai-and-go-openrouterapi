@@ -121,7 +121,7 @@
   - Validate end-to-end Discord command flow with OpenRouter responses
   - _Requirements: 1.1, 1.2, 1.3, 2.1, 3.1_
 
-- [ ] 16. Update go.mod dependencies and remove OpenAI package
+- [x] 16. Update go.mod dependencies and remove OpenAI package
 
   - Remove `github.com/sashabaranov/go-openai` dependency from go.mod
   - Add any new dependencies required for OpenRouter HTTP client

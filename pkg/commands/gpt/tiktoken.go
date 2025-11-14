@@ -4,16 +4,17 @@ import (
 	"strings"
 	
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
-	"github.com/sashabaranov/go-openai"
 	"github.com/tiktoken-go/tokenizer"
 )
 
-func countMessageTokens(message openai.ChatCompletionMessage, model string) *int {
-	ok, tokensPerMessage, tokensPerName := _tokensConfiguration(model)
+
+
+func countOpenRouterMessageTokens(message openrouter.ChatCompletionMessage, model string) *int {
+	ok, tokensPerMessage, tokensPerName := _tokensConfiguration(extractBaseModel(model))
 	if !ok {
 		return nil
 	}
-	enc, err := tokenizer.ForModel(tokenizer.Model(model))
+	enc, err := tokenizer.ForModel(tokenizer.Model(extractBaseModel(model)))
 	if err != nil {
 		enc, _ = tokenizer.Get(tokenizer.Cl100kBase)
 	}
@@ -21,37 +22,9 @@ func countMessageTokens(message openai.ChatCompletionMessage, model string) *int
 	return &tokens
 }
 
-func countOpenRouterMessageTokens(message openrouter.ChatCompletionMessage, model string) *int {
-	// Convert OpenRouter message to OpenAI format for token counting
-	openaiMessage := openai.ChatCompletionMessage{
-		Role:    message.Role,
-		Content: message.Content,
-		Name:    message.Name,
-	}
-	return countMessageTokens(openaiMessage, extractBaseModel(model))
-}
 
-func countMessagesTokens(messages []openai.ChatCompletionMessage, model string) *int {
-	ok, tokensPerMessage, tokensPerName := _tokensConfiguration(model)
-	if !ok {
-		return nil
-	}
 
-	enc, err := tokenizer.ForModel(tokenizer.Model(model))
-	if err != nil {
-		enc, _ = tokenizer.Get(tokenizer.Cl100kBase)
-	}
-
-	tokens := 0
-	for _, message := range messages {
-		tokens += _countMessageTokens(enc, tokensPerMessage, tokensPerName, message)
-	}
-	tokens += 3
-
-	return &tokens
-}
-
-func _countMessageTokens(enc tokenizer.Codec, tokensPerMessage int, tokensPerName int, message openai.ChatCompletionMessage) int {
+func _countMessageTokens(enc tokenizer.Codec, tokensPerMessage int, tokensPerName int, message openrouter.ChatCompletionMessage) int {
 	tokens := tokensPerMessage
 	contentIds, _, _ := enc.Encode(message.Content)
 	roleIds, _, _ := enc.Encode(message.Role)
@@ -65,54 +38,42 @@ func _countMessageTokens(enc tokenizer.Codec, tokensPerMessage int, tokensPerNam
 	return tokens
 }
 
-func countAllMessagesTokens(systemMessage *openai.ChatCompletionMessage, messages []openai.ChatCompletionMessage, model string) *int {
-	if systemMessage != nil {
-		messages = append(messages, *systemMessage)
-	}
-	return countMessagesTokens(messages, model)
-}
+
 
 func countAllOpenRouterMessagesTokens(systemMessage *openrouter.ChatCompletionMessage, messages []openrouter.ChatCompletionMessage, model string) *int {
-	// Convert OpenRouter messages to OpenAI format for token counting
-	openaiMessages := make([]openai.ChatCompletionMessage, len(messages))
-	for i, msg := range messages {
-		openaiMessages[i] = openai.ChatCompletionMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
-			Name:    msg.Name,
-		}
+	ok, tokensPerMessage, tokensPerName := _tokensConfiguration(extractBaseModel(model))
+	if !ok {
+		return nil
 	}
-	
-	var openaiSystemMessage *openai.ChatCompletionMessage
+
+	enc, err := tokenizer.ForModel(tokenizer.Model(extractBaseModel(model)))
+	if err != nil {
+		enc, _ = tokenizer.Get(tokenizer.Cl100kBase)
+	}
+
+	tokens := 0
+	for _, message := range messages {
+		tokens += _countMessageTokens(enc, tokensPerMessage, tokensPerName, message)
+	}
 	if systemMessage != nil {
-		openaiSystemMessage = &openai.ChatCompletionMessage{
-			Role:    systemMessage.Role,
-			Content: systemMessage.Content,
-			Name:    systemMessage.Name,
-		}
+		tokens += _countMessageTokens(enc, tokensPerMessage, tokensPerName, *systemMessage)
 	}
-	
-	return countAllMessagesTokens(openaiSystemMessage, openaiMessages, extractBaseModel(model))
+	tokens += 3
+
+	return &tokens
 }
 
 func _tokensConfiguration(model string) (ok bool, tokensPerMessage int, tokensPerName int) {
 	ok = true
 
 	switch model {
-	case openai.GPT3Dot5Turbo0301:
+	case "gpt-3.5-turbo-0301":
 		tokensPerMessage = 4
 		tokensPerName = -1
-	case openai.GPT3Dot5Turbo,
-		openai.GPT3Dot5Turbo0613,
-		openai.GPT3Dot5Turbo16K,
-		openai.GPT3Dot5Turbo16K0613:
+	case "gpt-3.5-turbo", "gpt-3.5-turbo-0613", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-16k-0613":
 		tokensPerMessage = 3
 		tokensPerName = 1
-	case openai.GPT4,
-		openai.GPT40314,
-		openai.GPT40613,
-		openai.GPT432K0314,
-		openai.GPT432K0613:
+	case "gpt-4", "gpt-4-0314", "gpt-4-0613", "gpt-4-32k-0314", "gpt-4-32k-0613":
 		tokensPerMessage = 3
 		tokensPerName = 1
 	default:

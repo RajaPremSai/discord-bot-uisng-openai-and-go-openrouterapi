@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/RajaPremSai/go-openai-dicord-bot/pkg/openrouter"
-	"github.com/sashabaranov/go-openai"
 )
 
 const discordMaxMessageLength = 2000
@@ -35,12 +34,7 @@ func splitMessage(message string) []string {
 	return messageParts
 }
 
-func reverseMessages(messages *[]openai.ChatCompletionMessage) {
-	length := len(*messages)
-	for i := 0; i < length/2; i++ {
-		(*messages)[i], (*messages)[length-i-1] = (*messages)[length-i-1], (*messages)[i]
-	}
-}
+
 
 func reverseOpenRouterMessages(messages *[]openrouter.ChatCompletionMessage) {
 	length := len(*messages)
